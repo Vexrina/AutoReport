@@ -1,5 +1,7 @@
 # db file, a lot of size
 YERMAK_T1.sqlite*
+*.docx
+
 
 .DS_Store
 .huskyrc.json
