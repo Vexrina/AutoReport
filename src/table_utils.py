@@ -23,3 +23,4 @@ def update_checkbox_columns(item, tree):
 
     # Обновление отображения флажка в таблице
     tree.item(item, values=(tree.set(item, "Checkbox"), tree.set(item, "Column")))
+

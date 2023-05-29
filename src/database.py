@@ -4,15 +4,72 @@ import sqlite3
 from tkinter import ttk
 
 
-def select_database_file(entry, table_tree, selected_tables):
+def open_time_window(window, labels):
+    time_window = tk.Toplevel(window)
+    time_window.title("Время и выходной файл")
+
+    # Метка для времени
+    time_label = tk.Label(time_window, text="Введите время (мм:сс):")
+    time_label.pack(pady=10)
+
+    # Поле для ввода времени
+    time_entry = tk.Entry(time_window, width=10)
+    time_entry.pack()
+
+    # Метка для выходного файла
+    output_file_label = tk.Label(
+        time_window, text="Введите имя выходного файла:")
+    output_file_label.pack(pady=10)
+
+    # Поле для ввода имени выходного файла
+    output_file_entry = tk.Entry(time_window, width=30)
+    output_file_entry.pack()
+
+    # Кнопка подтверждения
+    confirm_button = tk.Button(time_window, text="Подтвердить", command=lambda: save_data(
+        time_window, time_entry.get(), output_file_entry.get(), labels))
+    confirm_button.pack(pady=10)
+
+
+def select_database_file(entry, table_tree, selected_tables, window, labels):
     file_path = filedialog.askopenfilename(
         filetypes=[("SQLite Databases", "*.db *.sqlite")])
     entry.delete(0, tk.END)
     entry.insert(tk.END, file_path)
     display_tables(file_path, table_tree, selected_tables)
+    open_time_window(window, labels)
 
 
-def tables_info(database_file):
+def save_data(time_window, time, output_file, labels):
+    # Сохранение времени и имени файла
+    time_sec = time.split(':')
+    rem_time = int(time_sec[0])*60+int(time_sec[1])
+    labels[0]["text"] = f"Оставшееся время: {rem_time} секунд"
+    labels[1]["text"] = f"Имя выходного файла: {output_file}"
+
+    # Дополнительные действия, если необходимо
+    time_window.destroy()
+    update_timer(labels[0])
+
+
+def update_timer(label):
+    current_text = label.cget("text")  # Получение текущего текста метки
+    time_start = current_text.find(":") + 2  # Индекс начала значения времени
+    time_end = current_text.find(" секунд")  # Индекс конца значения времени
+    # Извлечение текущего значения времени
+    remaining_time = int(current_text[time_start:time_end])
+
+    if remaining_time > 0:
+        remaining_time -= 1
+        # Формирование нового текста метки
+        new_text = current_text[:time_start] + \
+            str(remaining_time) + current_text[time_end:]
+        label.config(text=new_text)
+        # Запуск функции через 1 секунду
+        label.after(1000, update_timer, label)
+
+
+def tables_info(database_file:str)->dict:
     # Устанавливаем соединение с базой данных
     conn = sqlite3.connect(database_file)
 
