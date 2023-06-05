@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from database import select_database_file, toggle_checkbox_state, toggle_all_checkboxes, update_checkbox_header, tables_info
+from create_csv import foo
 
 selected_tables = []
 selected_columns = {}
@@ -136,7 +137,18 @@ output_file_name = tk.Label(right_frame, text="Имя выходного фай�
 output_file_name.pack()
 
 def work():
-    print()
+    ready_to_work = {}
+    for item in selected_columns_tree.get_children():
+        values = selected_columns_tree.item(item)["values"]
+        table_name = values[0]
+        column_value = values[1]
+
+        if table_name in ready_to_work:
+            ready_to_work[table_name].append(column_value)
+        else:
+            ready_to_work[table_name] = [column_value]
+
+    foo(table_and_columns=ready_to_work)
 
 execute_button = tk.Button(right_frame, text="Выполнить", command=work)
 execute_button.pack(anchor='s', pady=5, padx=15)
