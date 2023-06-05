@@ -2,6 +2,7 @@
 YERMAK_T?.sqlite*
 *.docx
 
+src/.idea/*
 
 .DS_Store
 .huskyrc.json
