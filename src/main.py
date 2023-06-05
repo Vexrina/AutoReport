@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from database import select_database_file, toggle_checkbox_state, toggle_all_checkboxes, update_checkbox_header, tables_info
-from create_csv import foo
+from create_csv import main_alghrotitm
+import re
+
 
 selected_tables = []
 selected_columns = {}
@@ -17,9 +19,26 @@ def select_columns():
         return selected_columns
 
     tables_columns = tables_info(database_entry.get())
+    pattern = re.compile(r'Quality_[a-zA-Z]{2,}\d{0,}')
+    '''
+    т.к. есть необходимость удалять любые Quality при выборе столбцов, 
+    лучше всего для этого подойдут регулярка: 
+    'Quality_[a-zA-Z]{2,}\d{0,}'
+    Quality_ ищет такую подстроку в строке
+    [a-zA-Z] - любые символы, которые подходят в диапозон A-z
+    {2,} - 2 или более символа
+    \d - любая цифра
+    {0,} - 0 или больше
+
+    '''
     for table in tables_columns:
         ind = tables_columns[table].index('Time')
         tables_columns[table].pop(ind)
+
+    for table, values in tables_columns.items():
+        filtered_values = [
+            value for value in values if not pattern.match(value)]
+        tables_columns[table] = filtered_values
 
     def create_column_window(table_name):
         column_window = tk.Toplevel(window)
@@ -136,8 +155,44 @@ remaining_time_label.pack()
 output_file_name = tk.Label(right_frame, text="Имя выходного файла: ")
 output_file_name.pack()
 
+var1 = tk.IntVar()
+var3 = tk.IntVar()
+var5 = tk.IntVar()
+var7 = tk.IntVar()
+
+radio1 = tk.Radiobutton(right_frame, text="Сортировать время по возрастанию",
+                        variable=var1, value=0)
+radio1.pack(anchor='w')
+radio2 = tk.Radiobutton(right_frame, text="Сортировать время по убыванию",
+                        variable=var1, value=1)
+radio2.pack(anchor='w')
+
+radio3 = tk.Radiobutton(right_frame, text="Настроить имена столбцов",
+                        variable=var3, value=1)
+radio3.pack(anchor='w')
+radio4 = tk.Radiobutton(right_frame, text="Не настраивать имена столбцов",
+                        variable=var3, value=0)
+radio4.pack(anchor='w')
+
+radio5 = tk.Radiobutton(right_frame, text="Настроить пороговые значения",
+                        variable=var5, value=1)
+radio5.pack(anchor='w')
+radio6 = tk.Radiobutton(right_frame, text="Не настраивать пороговые значения",
+                        variable=var5, value=0)
+radio6.pack(anchor='w')
+
+radio7 = tk.Radiobutton(right_frame, text="Формат времени: HH:MM:00",
+                        variable=var7, value=1)
+radio7.pack(anchor='w')
+radio8 = tk.Radiobutton(right_frame, text="Формат времени: HH:00:00",
+                        variable=var7, value=0)
+radio8.pack(anchor='w')
+
+
 def work():
     ready_to_work = {}
+    radiobuttons_values = [var1.get(), var3.get(), var5.get(), var7.get()]
+    global window_stack, selection_list
     for item in selected_columns_tree.get_children():
         values = selected_columns_tree.item(item)["values"]
         table_name = values[0]
@@ -147,10 +202,13 @@ def work():
             ready_to_work[table_name].append(column_value)
         else:
             ready_to_work[table_name] = [column_value]
+    flags = [bool(value) for value in radiobuttons_values]
+    # print(flags)
+    main_alghrotitm(ready_to_work, database_entry.get(), flags)
 
-    foo(table_and_columns=ready_to_work)
 
-execute_button = tk.Button(right_frame, text="Выполнить", command=work)
+execute_button = tk.Button(right_frame, text="Выполнить",
+                           command=work)
 execute_button.pack(anchor='s', pady=5, padx=15)
 
 

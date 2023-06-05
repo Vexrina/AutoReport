@@ -5,21 +5,24 @@ import numpy as np
 import shutil
 from datetime import datetime
 
-table_and_columns = {
-    'VibrShort': ['Quality_VibA1', 'VibA3'],
-    'MainBushMShort': ['UB', 'UC', 'IA']
-}
+# table_and_columns = {
+#     'VibrShort': ['Quality_VibA1', 'VibA3'],
+#     'MainBushMShort': ['UB', 'UC', 'IA']
+# }
 
-database_path = r'C:\Users\Vexrina\Desktop\projects\practice\YERMAK_T1.sqlite'
+# database_path = r'C:\Users\Vexrina\Desktop\projects\practice\YERMAK_T1.sqlite'
 
 
-def create_pd_table(data: dict) -> pd.DataFrame:
+def create_pd_table(data: dict, flag: bool) -> pd.DataFrame:
     # Создание пустой пандас таблицы
     df = pd.DataFrame().from_dict(data[0])
     for i in range(1, len(data)):
         temp = pd.DataFrame().from_dict(data[i])
         df = df.merge(temp, on='Time', how='outer')
-    df = df.sort_values(by='Time')
+    if not flag:
+        df = df.sort_values(by='Time')
+    else:
+        df = df.sort_values(by='Time', ascending=False)
     df.insert(0, 'Time', df.pop('Time'))
     df = df.reset_index(drop=True)
     print(df.head())
@@ -63,6 +66,13 @@ def take_datas(table_and_columns: dict[str, list[str]], database: str) -> list[d
         for column in array:
             array_of_dict[k][column] = take_data(table.replace(
                 " ", ""), column.replace(" ", ""), database)
+            try:
+                quality_str = 'Quality_'+column.replace(" ", "")
+                quality_data = take_data(table.replace(
+                    " ", ""), quality_str, database)
+                array_of_dict[k][quality_str] = quality_data
+            except:
+                continue
         array_of_dict[k]['Time'] = take_data(
             table.replace(" ", ""), 'Time', database)
         k += 1
@@ -98,7 +108,7 @@ def processing_df(dataframe: pd.DataFrame, flag_Time: bool) -> pd.DataFrame:
     dataframe['Time'] = dataframe['Time'].apply(
         lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f'))
 
-    if flag_Time:
+    if not flag_Time:
         dataframe['Time'] = dataframe['Time'].apply(
             lambda x: x.strftime('%Y-%m-%d %H:00:00'))
     else:
@@ -121,10 +131,10 @@ def save_csv(dataframe: pd.DataFrame, output_file: str):
     dataframe.to_csv(f'{output_file}.csv', index=False)
 
 
-def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flag: bool):
+def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flags: list[bool]):
     taken = take_datas(table_and_columns, database_path)
-    df = create_pd_table(taken)
-    processing_df(df, True)
+    df = create_pd_table(taken, flags[0])
+    processing_df(df, flags[-1])
     print(df.isna().sum())
     print(df.head())
     save_csv(df, 'output')
