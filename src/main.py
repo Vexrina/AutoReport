@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from database import select_database_file, toggle_checkbox_state, toggle_all_checkboxes, update_checkbox_header, tables_info
-from create_csv import main_alghrotitm
+import create_csv
 import re
 
 
@@ -19,17 +19,14 @@ def select_columns():
         return selected_columns
 
     tables_columns = tables_info(database_entry.get())
-    pattern = re.compile(r'Quality_[a-zA-Z]{2,}\d{0,}')
+    pattern = re.compile(r'^Quality_.+')
     '''
     т.к. есть необходимость удалять любые Quality при выборе столбцов, 
     лучше всего для этого подойдут регулярка: 
-    'Quality_[a-zA-Z]{2,}\d{0,}'
-    Quality_ ищет такую подстроку в строке
-    [a-zA-Z] - любые символы, которые подходят в диапозон A-z
-    {1,} - 2 или более символа
-    \d - любая цифра
-    {0,} - 0 или больше
-
+    ^ - указывает, что соответствие должно начинаться с начала строки.
+    Quality_ - точное соответствие подстроке "Quality_".
+    .+ - означает, что после подстроки "Quality_" может быть один 
+    или более любых символов, кроме символа новой строки.
     '''
     for table in tables_columns:
         ind = tables_columns[table].index('Time')
@@ -210,7 +207,7 @@ def work():
     if flags[1]:  # по хорошему, надо обернуть в функцию, но не хочется парится с этим
         additional_window = tk.Toplevel(window)
         additional_window.title("Переименование столбцов")
-        additional_window.resizable(width=False, height=False)
+        additional_window.resizable(width=False, height=True)
         additional_window.geometry("375x500")
 
         # Создание прокручиваемой области
@@ -272,7 +269,7 @@ def work():
     if flags[2]:  # edit outers
         additional_window = tk.Toplevel(window)
         additional_window.title("Задача пороговых значений")
-        additional_window.resizable(width=False, height=False)
+        additional_window.resizable(width=False, height=True)
         additional_window.geometry("375x500")
         canvas = tk.Canvas(additional_window)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -313,7 +310,9 @@ def work():
         additional_window.protocol("WM_DELETE_WINDOW", save_names)
         additional_window.wait_window(additional_window)
 
-    # main_algorithm(ready_to_work, database_entry.get(), flags)
+    # print(flags)
+    # print(ready_to_work)
+    create_csv.main_alghrotitm(ready_to_work, database_entry.get(), flags)
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",

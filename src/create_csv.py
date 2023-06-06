@@ -1,31 +1,34 @@
 import pandas as pd
-import tkinter
 import sqlite3
-import numpy as np
-import shutil
 from datetime import datetime
 
 # table_and_columns = {
-#     'VibrShort': ['Quality_VibA1', 'VibA3'],
-#     'MainBushMShort': ['UB', 'UC', 'IA']
+#     'VVibrShort': ['VVibA2', 'VVibS1', 'VVibS3'],
+#     'EventsRPN': ['Name', 'Type'],
+#     'HydraLong': ['RelH2O', 'H2O', 'H2_GrD'],
+#     'HydraVibrShort': ['VibrA', 'VibrV', 'VibrS']
 # }
+
+# new_names = [
+#     'vvIBa2', 'vvIBs1', 'vvIBs3', 'Naming', 'Typing',
+#     'rELh2o', 'h2o', 'h2_gRd', 'vIBRa', 'vIBRv', 'vIBRs'
+# ]
 
 # database_path = r'C:\Users\Vexrina\Desktop\projects\practice\YERMAK_T1.sqlite'
 
 
-def create_pd_table(data: dict, flag: bool) -> pd.DataFrame:
+def create_pd_table(data: dict, flag_sort: bool) -> pd.DataFrame:
     # Создание пустой пандас таблицы
     df = pd.DataFrame().from_dict(data[0])
     for i in range(1, len(data)):
         temp = pd.DataFrame().from_dict(data[i])
         df = df.merge(temp, on='Time', how='outer')
-    if not flag:
+    if not flag_sort:
         df = df.sort_values(by='Time')
     else:
         df = df.sort_values(by='Time', ascending=False)
     df.insert(0, 'Time', df.pop('Time'))
     df = df.reset_index(drop=True)
-    print(df.head())
     return df
 
 
@@ -33,7 +36,7 @@ def quality(data: pd.Series) -> pd.Series:
     return data.apply(lambda x: x if x == 192 else None)
 
 
-def upper(data: pd.Series, column: str) -> pd.Series:
+def upper(data: pd.Series) -> pd.Series:
     mean_val = data.mean()
     max_val = data.max()
     threshold = mean_val + (max_val - mean_val) / 2
@@ -98,7 +101,15 @@ def get_table_data(table_name: str, database_path: str) -> list[any]:
     return table_data
 
 
-def processing_df(dataframe: pd.DataFrame, flag_Time: bool) -> pd.DataFrame:
+def user_upper(data, value):
+    try:
+        threshhold = int(value)
+        return data[data <= threshhold]
+    except:
+        return upper(data)
+
+
+def processing_df(dataframe: pd.DataFrame, flag_Time: bool, user_outers: list[str], flag_outer: bool = False) -> pd.DataFrame:
     not_number = [
         'Name', 'Time', 'Tel_Number', 'Comp_Name', 'Object_Name',
         'Ser_Number', 'message', 'core_start_time', 'psw',
@@ -115,11 +126,19 @@ def processing_df(dataframe: pd.DataFrame, flag_Time: bool) -> pd.DataFrame:
         dataframe['Time'] = dataframe['Time'].apply(
             lambda x: x.strftime('%Y-%m-%d %H:%M:00'))
 
+    k = 0
+
     for column_name, column in dataframe.items():
         if column_name not in not_number and column_name.find('Quality_') == -1:
-            dataframe[column_name] = upper(column, column_name)
+            if flag_outer:
+                dataframe[column_name] = user_upper(column, user_outers[k])
+                k += 1
+            else:
+                dataframe[column_name] = upper(column)
         elif column_name.find('Quality_') == 0:
             dataframe[column_name] = quality(column)
+        elif column_name in not_number:
+            k += 1
 
     dataframe = dataframe.dropna(
         subset=dataframe.columns[dataframe.columns != 'Time'], how='all')
@@ -131,10 +150,34 @@ def save_csv(dataframe: pd.DataFrame, output_file: str):
     dataframe.to_csv(f'{output_file}.csv', index=False)
 
 
-def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flags: list[bool]):
+def rename_columns(dataframe: pd.DataFrame, new_names: list[str]):
+    columns = dataframe.columns.tolist()
+    k = 1
+    new_columns = ['Time']
+    n = 0
+    while (k < len(columns)-1):  # не эффективно, но работает
+        if columns[k+1].find(f'Quality_{columns[k]}') == 0:
+            new_columns.append(new_names[n])
+            new_columns.append(f'Quality {new_names[n]}')
+            k += 2
+            n += 1
+        else:
+            new_columns.append(new_names[n])
+            k += 1
+            n += 1
+
+    dataframe.columns = new_columns
+    return dataframe
+
+
+def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flags: list[bool], new_names: list[str] = [], outers: list[str] = []):
     taken = take_datas(table_and_columns, database_path)
     df = create_pd_table(taken, flags[0])
-    processing_df(df, flags[-1])
-    print(df.isna().sum())
-    print(df.head())
+    processing_df(df, flags[-1], outers, flags[-2])
+    if flags[1]:
+        df = rename_columns(df, new_names)
     save_csv(df, 'output')
+
+
+# main_alghrotitm(table_and_columns, database_path,
+#                 flags=[0, 1, 0, 0], new_names=new_names)
