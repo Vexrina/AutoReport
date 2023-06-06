@@ -26,7 +26,7 @@ def select_columns():
     'Quality_[a-zA-Z]{2,}\d{0,}'
     Quality_ ищет такую подстроку в строке
     [a-zA-Z] - любые символы, которые подходят в диапозон A-z
-    {2,} - 2 или более символа
+    {1,} - 2 или более символа
     \d - любая цифра
     {0,} - 0 или больше
 
@@ -192,19 +192,128 @@ radio8.pack(anchor='w')
 def work():
     ready_to_work = {}
     radiobuttons_values = [var1.get(), var3.get(), var5.get(), var7.get()]
-    global window_stack, selection_list
+    old_names = []
     for item in selected_columns_tree.get_children():
         values = selected_columns_tree.item(item)["values"]
         table_name = values[0]
         column_value = values[1]
-
+        old_names.append(column_value)
         if table_name in ready_to_work:
             ready_to_work[table_name].append(column_value)
         else:
             ready_to_work[table_name] = [column_value]
+    if len(ready_to_work) == 0:
+        messagebox.showerror("Ошибка", "Не выбраны столбцы")
+        return
     flags = [bool(value) for value in radiobuttons_values]
-    # print(flags)
-    main_alghrotitm(ready_to_work, database_entry.get(), flags)
+
+    if flags[1]:  # по хорошему, надо обернуть в функцию, но не хочется парится с этим
+        additional_window = tk.Toplevel(window)
+        additional_window.title("Переименование столбцов")
+        additional_window.resizable(width=False, height=False)
+        additional_window.geometry("375x500")
+
+        # Создание прокручиваемой области
+        canvas = tk.Canvas(additional_window)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Создание виджета прокрутки
+        scrollbar = tk.Scrollbar(additional_window, command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Привязка прокручиваемой области к виджету прокрутки
+        canvas.config(yscrollcommand=scrollbar.set)
+
+        # Создание фрейма в прокручиваемой области
+        frame = tk.Frame(canvas)
+
+        # Помещение фрейма в прокручиваемую область
+        canvas.create_window((0, 0), window=frame, anchor=tk.NW)
+
+        instr_label = tk.Label(
+            frame,
+            text='Введите новые имена для столбцов\nПри вводе пустой строки останется старое имя столбца'
+        )
+        instr_label.pack(pady=5)
+
+        entry_list = []
+
+        for name in old_names:
+            label = tk.Label(frame, text=f'Введите имя для столбца {name}')
+            label.pack(pady=5)
+
+            entry = tk.Entry(frame)
+            entry.pack(pady=5)
+            entry_list.append(entry)
+
+        new_names = []
+
+        def save_names():
+            for entry in entry_list:
+                new_names.append(entry.get())
+            additional_window.destroy()
+
+        # Создание вложенного фрейма для кнопки "Сохранить"
+        button_frame = tk.Frame(frame)
+        button_frame.pack(pady=10)
+
+        save_button = tk.Button(
+            button_frame, text="Сохранить", command=save_names)
+        save_button.pack()
+
+        # Обновление размеров прокручиваемой области при изменении содержимого
+        def update_scroll_region(event):
+            canvas.configure(scrollregion=canvas.bbox(tk.ALL))
+
+        frame.bind("<Configure>", update_scroll_region)
+
+        additional_window.protocol("WM_DELETE_WINDOW", save_names)
+        additional_window.wait_window(additional_window)
+    if flags[2]:  # edit outers
+        additional_window = tk.Toplevel(window)
+        additional_window.title("Задача пороговых значений")
+        additional_window.resizable(width=False, height=False)
+        additional_window.geometry("375x500")
+        canvas = tk.Canvas(additional_window)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar = tk.Scrollbar(additional_window, command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.config(yscrollcommand=scrollbar.set)
+        frame = tk.Frame(canvas)
+        canvas.create_window((0, 0), window=frame, anchor=tk.NW)
+        instr_label = tk.Label(
+            frame,
+            text='Введите верхние пороговые значения для столбцов\nПри вводе любой не числовой строки,\n верхняя граница столбца будет определена автоматически'
+        )
+        instr_label.pack(pady=5)
+        entry_list = []
+        for name in old_names:
+            label = tk.Label(
+                frame, text=f'Введите верхнюю границу для столбца {name}')
+            label.pack(pady=5)
+
+            entry = tk.Entry(frame)
+            entry.pack(pady=5)
+            entry_list.append(entry)
+        outers = []
+
+        def save_names():
+            for entry in entry_list:
+                outers.append(entry.get())
+            additional_window.destroy()
+        button_frame = tk.Frame(frame)
+        button_frame.pack(pady=10)
+        save_button = tk.Button(
+            button_frame, text="Сохранить", command=save_names)
+        save_button.pack()
+
+        def update_scroll_region(event):
+            canvas.configure(scrollregion=canvas.bbox(tk.ALL))
+        frame.bind("<Configure>", update_scroll_region)
+        additional_window.protocol("WM_DELETE_WINDOW", save_names)
+        additional_window.wait_window(additional_window)
+
+    # main_algorithm(ready_to_work, database_entry.get(), flags)
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",
