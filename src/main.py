@@ -310,9 +310,20 @@ def work():
         additional_window.protocol("WM_DELETE_WINDOW", save_names)
         additional_window.wait_window(additional_window)
 
-    # print(flags)
-    # print(ready_to_work)
-    create_csv.main_alghrotitm(ready_to_work, database_entry.get(), flags)
+
+    if flags[1]:
+        rename = {k: v for k, v in zip(old_names, new_names)}
+    
+    output_file = output_file_name.cget('text')
+    output_file = output_file[output_file.find(':')+2:]
+    # print(output_file)
+    create_csv.main_alghrotitm(
+        table_and_columns=ready_to_work,
+        database_path=database_entry.get(),
+        flags=flags,
+        new_names=rename,
+        outers=outers,
+        output_file_name=output_file)
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",

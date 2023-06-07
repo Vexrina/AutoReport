@@ -137,6 +137,8 @@ def processing_df(dataframe: pd.DataFrame, flag_Time: bool, user_outers: list[st
                 dataframe[column_name] = upper(column)
         elif column_name.find('Quality_') == 0:
             dataframe[column_name] = quality(column)
+        elif column_name == 'Time':
+            continue
         elif column_name in not_number:
             k += 1
 
@@ -150,33 +152,43 @@ def save_csv(dataframe: pd.DataFrame, output_file: str):
     dataframe.to_csv(f'{output_file}.csv', index=False)
 
 
-def rename_columns(dataframe: pd.DataFrame, new_names: list[str]):
+def rename_columns(dataframe: pd.DataFrame, new_names: dict[str, str]):
     columns = dataframe.columns.tolist()
-    k = 1
     new_columns = ['Time']
-    n = 0
-    while (k < len(columns)-1):  # не эффективно, но работает
-        if columns[k+1].find(f'Quality_{columns[k]}') == 0:
-            new_columns.append(new_names[n])
-            new_columns.append(f'Quality {new_names[n]}')
-            k += 2
-            n += 1
+    k = 1
+    while k < len(columns)-1:
+        if columns[k+1] == 'Quality_'+columns[k]:
+            if new_names[columns[k]] == '':
+                new_columns.append(columns[k])
+                new_columns.append('Quality '+columns[k])
+                k += 2
+            else:
+                new_columns.append(new_names[columns[k]])
+                new_columns.append('Quality '+new_names[columns[k]])
+                k += 2
         else:
-            new_columns.append(new_names[n])
-            k += 1
-            n += 1
-
+            if new_names[columns[k]] == '':
+                new_columns.append(columns[k])
+                k += 1
+            else:
+                new_columns.append(columns[k])
+                k += 1
+    if len(columns) != len(new_columns):
+        if new_names[columns[-1]] == '':
+            new_columns.append(columns[-1])
+        else:
+            new_columns.append(new_names[columns[-1]])
     dataframe.columns = new_columns
     return dataframe
 
 
-def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flags: list[bool], new_names: list[str] = [], outers: list[str] = []):
+def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flags: list[bool], new_names: dict[str, str] = {}, outers: list[str] = [], output_file_name: str = 'output'):
     taken = take_datas(table_and_columns, database_path)
     df = create_pd_table(taken, flags[0])
     processing_df(df, flags[-1], outers, flags[-2])
     if flags[1]:
         df = rename_columns(df, new_names)
-    save_csv(df, 'output')
+    save_csv(df, output_file_name)
 
 
 # main_alghrotitm(table_and_columns, database_path,
