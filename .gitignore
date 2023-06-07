@@ -2,7 +2,10 @@
 YERMAK_T?.sqlite*
 *.docx
 
-src/.idea/*
+/src/build/*
+/src/.idea/*
+/src/dist/*
+/src/main.spec
 
 .DS_Store
 .huskyrc.json
