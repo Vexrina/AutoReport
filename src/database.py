@@ -44,10 +44,10 @@ def connect_to_msql(msql_window, server_entry, database_entry, username_entry, p
     database = database_entry.get()
     username = username_entry.get()
     password = password_entry.get()
-    connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
+    # connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
+    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
     entry.delete(0,tk.END)
     entry.insert(tk.END, connection_string)
-    # connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
     # print(connection_string)
     display_mssql_tables(table_tree, selected_tables, connection_string)
     msql_window.destroy()
