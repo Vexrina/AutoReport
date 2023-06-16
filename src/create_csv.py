@@ -1,28 +1,24 @@
+# create_csv.py
 import pandas as pd
 import sqlite3
 from datetime import datetime
-
-# table_and_columns = {
-#     'VVibrShort': ['VVibA2', 'VVibS1', 'VVibS3'],
-#     'EventsRPN': ['Name', 'Type'],
-#     'HydraLong': ['RelH2O', 'H2O', 'H2_GrD'],
-#     'HydraVibrShort': ['VibrA', 'VibrV', 'VibrS']
-# }
-
-# new_names = [
-#     'vvIBa2', 'vvIBs1', 'vvIBs3', 'Naming', 'Typing',
-#     'rELh2o', 'h2o', 'h2_gRd', 'vIBRa', 'vIBRv', 'vIBRs'
-# ]
-
-# database_path = r'C:\Users\Vexrina\Desktop\projects\practice\YERMAK_T1.sqlite'
+import pyodbc
 
 
-def create_pd_table(data: dict, flag_sort: bool) -> pd.DataFrame:
+def create_pd_table(data, flag_sort):
     # Создание пустой пандас таблицы
-    df = pd.DataFrame().from_dict(data[0])
-    for i in range(1, len(data)):
-        temp = pd.DataFrame().from_dict(data[i])
-        df = df.merge(temp, on='Time', how='outer')
+    try:
+        df = pd.DataFrame().from_dict(data[0])
+        for i in range(1, len(data)):
+            temp = pd.DataFrame().from_dict(data[i])
+            temp['Time'] = temp['Time'].astype(str)
+            df = df.merge(temp, on='Time', how='outer')
+    except ValueError:
+        df = pd.DataFrame().from_dict(data[0])
+        for i in range(1, len(data)):
+            temp = pd.DataFrame().from_dict(data[i])
+            temp['Time'] = pd.to_datetime(temp['Time'])
+            df = df.merge(temp, on='Time', how='outer')
     if not flag_sort:
         df = df.sort_values(by='Time')
     else:
@@ -32,11 +28,11 @@ def create_pd_table(data: dict, flag_sort: bool) -> pd.DataFrame:
     return df
 
 
-def quality(data: pd.Series) -> pd.Series:
+def quality(data):
     return data.apply(lambda x: x if x == 192 else None)
 
 
-def upper(data: pd.Series) -> pd.Series:
+def upper(data):
     mean_val = data.mean()
     max_val = data.max()
     threshold = mean_val + (max_val - mean_val) / 2
@@ -44,7 +40,7 @@ def upper(data: pd.Series) -> pd.Series:
     return data
 
 
-def take_data(table: str, column: str, database_path: str) -> list[any]:
+def take_data_sqlite(table, column, database_path):
     # Подключение к базе данных SQLite
     conn = sqlite3.connect(database_path)
     cursor = conn.cursor()
@@ -61,28 +57,62 @@ def take_data(table: str, column: str, database_path: str) -> list[any]:
     return column_data
 
 
-def take_datas(table_and_columns: dict[str, list[str]], database: str) -> list[dict]:
+def take_data_mssql(table, column, connection_string):
+    # Подключение к базе данных MS SQL Server
+    conn = pyodbc.connect(connection_string)
+    cursor = conn.cursor()
+
+    query = f"SELECT {column} FROM {table}"
+    cursor.execute(query)
+
+    # Извлечение данных из результата запроса
+    column_data = [value[0] for value in cursor.fetchall()]
+
+    # Закрытие соединения с базой данных
+    cursor.close()
+    conn.close()
+    return column_data
+
+
+def take_datas(table_and_columns, database, database_var=0):
     array_of_dict = [{} for __ in range(len(table_and_columns.keys()))]
     k = 0
-    for table in table_and_columns.keys():
-        array = table_and_columns[table]
-        for column in array:
-            array_of_dict[k][column] = take_data(table.replace(
-                " ", ""), column.replace(" ", ""), database)
-            try:
-                quality_str = 'Quality_'+column.replace(" ", "")
-                quality_data = take_data(table.replace(
-                    " ", ""), quality_str, database)
-                array_of_dict[k][quality_str] = quality_data
-            except:
-                continue
-        array_of_dict[k]['Time'] = take_data(
-            table.replace(" ", ""), 'Time', database)
-        k += 1
+    if database_var == 0:
+        for table in table_and_columns.keys():
+            array = table_and_columns[table]
+            for column in array:
+                array_of_dict[k][column] = take_data_sqlite(table.replace(
+                    " ", ""), column.replace(" ", ""), database)
+                try:
+                    quality_str = 'Quality_'+column.replace(" ", "")
+                    quality_data = take_data_sqlite(table.replace(
+                        " ", ""), quality_str, database)
+                    array_of_dict[k][quality_str] = quality_data
+                except:
+                    continue
+            array_of_dict[k]['Time'] = take_data_sqlite(
+                table.replace(" ", ""), 'Time', database)
+            k += 1
+    else:
+        for table in table_and_columns.keys():
+            array = table_and_columns[table]
+            for column in array:
+                array_of_dict[k][column] = take_data_mssql(table.replace(
+                    " ", ""), column.replace(" ", ""), database)
+                try:
+                    quality_str = 'Quality_'+column.replace(" ", "")
+                    quality_data = take_data_mssql(table.replace(
+                        " ", ""), quality_str, database)
+                    array_of_dict[k][quality_str] = quality_data
+                except:
+                    continue
+            array_of_dict[k]['Time'] = take_data_mssql(
+                table.replace(" ", ""), 'Time', database)
+            k += 1
     return array_of_dict
 
 
-def get_table_data(table_name: str, database_path: str) -> list[any]:
+def get_table_data(table_name, database_path):
     # Подключение к базе данных SQLite
     conn = sqlite3.connect(database_path)
     cursor = conn.cursor()
@@ -109,15 +139,22 @@ def user_upper(data, value):
         return upper(data)
 
 
-def processing_df(dataframe: pd.DataFrame, flag_Time: bool, user_outers: list[str], flag_outer: bool = False) -> pd.DataFrame:
+def processing_df(dataframe, flag_Time, user_outers, flag_outer=False):
     not_number = [
         'Name', 'Time', 'Tel_Number', 'Comp_Name', 'Object_Name',
         'Ser_Number', 'message', 'core_start_time', 'psw',
         'Trans_Mode', 'Prod_Fact', 'Stat_Name', 'TOil'
     ]
-
-    dataframe['Time'] = dataframe['Time'].apply(
-        lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f'))
+    try:
+        dataframe['Time'] = dataframe['Time'].apply(
+            lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f'))
+    except ValueError:
+        dataframe['Time'] = dataframe['Time'].dt.strftime(
+            '%Y-%m-%dT%H:%M:%S.%f')
+        dataframe['Time'] = dataframe['Time'].apply(
+            lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f'))
+    except TypeError:
+        print('that is mssql')
 
     if not flag_Time:
         dataframe['Time'] = dataframe['Time'].apply(
@@ -148,11 +185,11 @@ def processing_df(dataframe: pd.DataFrame, flag_Time: bool, user_outers: list[st
     return dataframe
 
 
-def save_csv(dataframe: pd.DataFrame, output_file: str):
+def save_csv(dataframe, output_file):
     dataframe.to_csv(f'{output_file}.csv', index=False)
 
 
-def rename_columns(dataframe: pd.DataFrame, new_names: dict[str, str]):
+def rename_columns(dataframe, new_names):
     columns = dataframe.columns.tolist()
     new_columns = ['Time']
     k = 1
@@ -182,14 +219,10 @@ def rename_columns(dataframe: pd.DataFrame, new_names: dict[str, str]):
     return dataframe
 
 
-def main_alghrotitm(table_and_columns: dict[str, list[str]], database_path: str, flags: list[bool], new_names: dict[str, str] = {}, outers: list[str] = [], output_file_name: str = 'output'):
-    taken = take_datas(table_and_columns, database_path)
+def main_alghrotitm(table_and_columns, database_path, flags, new_names={}, outers=[], output_file_name='output', database_var=0):
+    taken = take_datas(table_and_columns, database_path, database_var)
     df = create_pd_table(taken, flags[0])
     processing_df(df, flags[-1], outers, flags[-2])
     if flags[1]:
         df = rename_columns(df, new_names)
     save_csv(df, output_file_name)
-
-
-# main_alghrotitm(table_and_columns, database_path,
-#                 flags=[0, 1, 0, 0], new_names=new_names)

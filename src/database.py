@@ -1,7 +1,100 @@
+# database.py
 import tkinter as tk
 from tkinter import filedialog
 import sqlite3
 from tkinter import ttk
+import pyodbc
+
+
+def open_MSSQL_window(window, table_tree, selected_tables, gui_entry):
+    msql_window = tk.Toplevel(window)
+    msql_window.title(
+        'Введите данные для локального или удаленного MS SQL Server')
+    msql_window.geometry("200x325")
+    info_label = tk.Label(
+        msql_window, text='Введите данные для локального\n или удаленного MS SQL Server')
+    info_label.pack(pady=10)
+
+    server_label = tk.Label(
+        msql_window, text='Имя или IP-адрес сервера MS SQL')
+    database_label = tk.Label(msql_window, text='Имя базы данных')
+    username_label = tk.Label(msql_window, text='Имя пользователя')
+    password_label = tk.Label(msql_window, text='Пароль')
+
+    server_entry = tk.Entry(msql_window, width=25)
+    database_entry = tk.Entry(msql_window, width=25)
+    username_entry = tk.Entry(msql_window, width=25)
+    password_entry = tk.Entry(msql_window, width=25)
+    server_label.pack(pady=5)
+    server_entry.pack()
+    database_label.pack(pady=10)
+    database_entry.pack()
+    username_label.pack(pady=10)
+    username_entry.pack()
+    password_label.pack(pady=10)
+    password_entry.pack()
+
+    confirm_button = tk.Button(msql_window, text='Совершить подключение', command=lambda: connect_to_msql(
+        msql_window, server_entry, database_entry, username_entry, password_entry, table_tree, selected_tables, gui_entry))
+    confirm_button.pack(pady=10)
+
+
+def connect_to_msql(msql_window, server_entry, database_entry, username_entry, password_entry, table_tree, selected_tables, entry):
+    server = server_entry.get()
+    database = database_entry.get()
+    username = username_entry.get()
+    password = password_entry.get()
+    connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
+    entry.delete(0,tk.END)
+    entry.insert(tk.END, connection_string)
+    # connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+    # print(connection_string)
+    display_mssql_tables(table_tree, selected_tables, connection_string)
+    msql_window.destroy()
+
+
+def tables_mssql_info(connection_string):
+    conn = pyodbc.connect(connection_string)
+    # Создаем курсор для выполнения SQL-запросов
+    cursor = conn.cursor()
+
+    # Получаем список таблиц в базе данных
+    cursor.execute(
+        "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';")
+    tables_and_columns = {}
+    tables = cursor.fetchall()
+
+    for table in tables:
+        tables_and_columns[table[0]] = []
+
+    for table_name in tables_and_columns.keys():
+        # Получаем список столбцов в таблице
+        cursor.execute(
+            f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{table_name}';")
+        columns = cursor.fetchall()
+        # Выводим список столбцов
+        for column in columns:
+            tables_and_columns[table_name].append(column[0])
+
+    conn.close()
+
+    wo_time = []
+    for key in tables_and_columns.keys():
+        if 'Time' not in tables_and_columns[key]:
+            wo_time.append(key)
+
+    for item in wo_time:
+        tables_and_columns.pop(item)
+    return tables_and_columns
+
+
+def display_mssql_tables(table_tree, selected_tables, connection_string):
+    tables = tables_mssql_info(connection_string)
+    for row in table_tree.get_children():
+        table_tree.delete(row)
+    for table in tables:
+        table_tree.insert("", tk.END, values=(
+            update_checkbox_state(table, selected_tables), table))
 
 
 def open_time_window(window, labels):
@@ -31,13 +124,17 @@ def open_time_window(window, labels):
     confirm_button.pack(pady=10)
 
 
-def select_database_file(entry, table_tree, selected_tables, window, labels):
-    file_path = filedialog.askopenfilename(
-        filetypes=[("SQLite Databases", "*.db *.sqlite")])
-    entry.delete(0, tk.END)
-    entry.insert(tk.END, file_path)
-    display_tables(file_path, table_tree, selected_tables)
-    open_time_window(window, labels)
+def select_database_file(entry, table_tree, selected_tables, window, labels, database_var):
+    if database_var.get() == 1:
+        # print(database_var.get())
+        open_MSSQL_window(window, table_tree, selected_tables, entry)
+    else:
+        file_path = filedialog.askopenfilename(
+            filetypes=[("SQLite Databases", "*.db *.sqlite")])
+        entry.delete(0, tk.END)
+        entry.insert(tk.END, file_path)
+        display_tables(file_path, table_tree, selected_tables)
+        open_time_window(window, labels)
 
 
 def save_data(time_window, time, output_file, labels):
@@ -69,7 +166,7 @@ def update_timer(label):
         label.after(1000, update_timer, label)
 
 
-def tables_info(database_file:str)->dict:
+def tables_info(database_file: str) -> dict:
     # Устанавливаем соединение с базой данных
     conn = sqlite3.connect(database_file)
 

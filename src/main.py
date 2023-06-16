@@ -1,7 +1,8 @@
+# main.py
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-from database import select_database_file, toggle_checkbox_state, toggle_all_checkboxes, update_checkbox_header, tables_info
+from database import select_database_file, toggle_checkbox_state, toggle_all_checkboxes, update_checkbox_header, tables_info, tables_mssql_info
 import create_csv
 import re
 
@@ -17,8 +18,10 @@ def select_columns():
     if not selected_tables:
         messagebox.showerror("Ошибка", "Не выбраны таблицы")
         return selected_columns
-
-    tables_columns = tables_info(database_entry.get())
+    if database_var.get() == 1:
+        tables_columns = tables_mssql_info(database_entry.get())
+    else:
+        tables_columns = tables_info(database_entry.get())
     pattern = re.compile(r'^Quality_.+')
     '''
     т.к. есть необходимость удалять любые Quality при выборе столбцов, 
@@ -113,11 +116,21 @@ left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 left_frame.grid_columnconfigure(0, weight=1)
 left_frame.grid_rowconfigure(0, weight=1)
 
+database_var = tk.IntVar()
+
+sqlite_checkbox = tk.Radiobutton(
+    left_frame, text="SQLite", variable=database_var, value=0)
+sqlite_checkbox.pack(anchor='w')
+
+ms_sql_checkbox = tk.Radiobutton(
+    left_frame, text="MS SQL", variable=database_var, value=1)
+ms_sql_checkbox.pack(anchor='w')
+
 database_entry = tk.Entry(left_frame, width=30)
 database_entry.pack(pady=10, anchor='w')
 
 select_button = tk.Button(left_frame, text="Выбрать базу данных", command=lambda: select_database_file(
-    database_entry, table_tree, selected_tables, window, labels=[remaining_time_label, output_file_name]))
+    database_entry, table_tree, selected_tables, window, labels=[remaining_time_label, output_file_name], database_var=database_var))
 select_button.pack(anchor='w', pady=5)
 
 table_frame = tk.Frame(left_frame)
@@ -190,6 +203,9 @@ def work():
     ready_to_work = {}
     radiobuttons_values = [var1.get(), var3.get(), var5.get(), var7.get()]
     old_names = []
+    outers = []
+    new_names = []
+    rename = {}
     for item in selected_columns_tree.get_children():
         values = selected_columns_tree.item(item)["values"]
         table_name = values[0]
@@ -203,7 +219,6 @@ def work():
         messagebox.showerror("Ошибка", "Не выбраны столбцы")
         return
     flags = [bool(value) for value in radiobuttons_values]
-
     if flags[1]:  # по хорошему, надо обернуть в функцию, но не хочется парится с этим
         additional_window = tk.Toplevel(window)
         additional_window.title("Переименование столбцов")
@@ -309,21 +324,86 @@ def work():
         frame.bind("<Configure>", update_scroll_region)
         additional_window.protocol("WM_DELETE_WINDOW", save_names)
         additional_window.wait_window(additional_window)
-
-
     if flags[1]:
         rename = {k: v for k, v in zip(old_names, new_names)}
-    
+
     output_file = output_file_name.cget('text')
     output_file = output_file[output_file.find(':')+2:]
     # print(output_file)
-    create_csv.main_alghrotitm(
-        table_and_columns=ready_to_work,
-        database_path=database_entry.get(),
-        flags=flags,
-        new_names=rename,
-        outers=outers,
-        output_file_name=output_file)
+    if len(outers) > 0:
+        if len(output_file) > 0:
+            if len(rename) > 0:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    new_names=rename,
+                    outers=outers,
+                    output_file_name=output_file,
+                    database_var=database_var.get()
+                )
+            else:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    outers=outers,
+                    output_file_name=output_file,
+                    database_var=database_var.get()
+                )
+        else:
+            if len(rename) > 0:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    new_names=rename,
+                    outers=outers,
+                    database_var=database_var.get()
+                )
+            else:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    outers=outers,
+                    database_var=database_var.get()
+                )
+    else:
+        if len(output_file) > 0:
+            if len(rename) > 0:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    new_names=rename,
+                    output_file_name=output_file,
+                    database_var=database_var.get()
+                )
+            else:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    output_file_name=output_file,
+                    database_var=database_var.get()
+                )
+        else:
+            if len(rename) > 0:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    new_names=rename,
+                    database_var=database_var.get()
+                )
+            else:
+                create_csv.main_alghrotitm(
+                    table_and_columns=ready_to_work,
+                    database_path=database_entry.get(),
+                    flags=flags,
+                    database_var=database_var.get()
+                )
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",
