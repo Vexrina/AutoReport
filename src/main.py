@@ -22,38 +22,22 @@ def select_columns():
         tables_columns = tables_mssql_info(database_entry.get())
     else:
         tables_columns = tables_info(database_entry.get())
-    pattern = re.compile(r'^Quality_.+')
-    '''
-    т.к. есть необходимость удалять любые Quality при выборе столбцов, 
-    лучше всего для этого подойдут регулярка: 
-    ^ - указывает, что соответствие должно начинаться с начала строки.
-    Quality_ - точное соответствие подстроке "Quality_".
-    .+ - означает, что после подстроки "Quality_" может быть один 
-    или более любых символов, кроме символа новой строки.
-    '''
-    for table in tables_columns:
-        ind = tables_columns[table].index('Time')
-        tables_columns[table].pop(ind)
-
-    for table, values in tables_columns.items():
-        filtered_values = [
-            value for value in values if not pattern.match(value)]
-        tables_columns[table] = filtered_values
 
     def create_column_window(table_name):
         column_window = tk.Toplevel(window)
         column_window.title(f"Выбор столбцов для таблицы {table_name}")
-
+        column_window.geometry("600x300")
         column_frame = tk.Frame(column_window)
         column_frame.pack(pady=10, anchor='w')
 
         column_tree = ttk.Treeview(column_frame, columns=(
-            "Checkbox", "Column"), show="headings", height=10)
+            "Checkbox", "Column"), show="headings", height=10,)
         column_tree.heading("Checkbox", text="")
         column_tree.heading("Column", text="Column")
         column_tree.pack(anchor='w')
 
         column_tree.column("Checkbox", width=25)
+        column_tree.column("Column",width=550)
         column_tree.heading(
             "Checkbox", command=lambda: toggle_all_checkboxes(column_tree))
         selected_columns[table_name] = []
@@ -166,9 +150,6 @@ output_file_name = tk.Label(right_frame, text="Имя выходного фай�
 output_file_name.pack()
 
 var1 = tk.IntVar()
-var3 = tk.IntVar()
-var5 = tk.IntVar()
-var7 = tk.IntVar()
 
 radio1 = tk.Radiobutton(right_frame, text="Сортировать время по возрастанию",
                         variable=var1, value=0)
@@ -177,40 +158,14 @@ radio2 = tk.Radiobutton(right_frame, text="Сортировать время п�
                         variable=var1, value=1)
 radio2.pack(anchor='w')
 
-radio3 = tk.Radiobutton(right_frame, text="Настроить имена столбцов",
-                        variable=var3, value=1)
-radio3.pack(anchor='w')
-radio4 = tk.Radiobutton(right_frame, text="Не настраивать имена столбцов",
-                        variable=var3, value=0)
-radio4.pack(anchor='w')
-
-radio5 = tk.Radiobutton(right_frame, text="Настроить пороговые значения",
-                        variable=var5, value=1)
-radio5.pack(anchor='w')
-radio6 = tk.Radiobutton(right_frame, text="Не настраивать пороговые значения",
-                        variable=var5, value=0)
-radio6.pack(anchor='w')
-
-radio7 = tk.Radiobutton(right_frame, text="Формат времени: HH:MM:00",
-                        variable=var7, value=1)
-radio7.pack(anchor='w')
-radio8 = tk.Radiobutton(right_frame, text="Формат времени: HH:00:00",
-                        variable=var7, value=0)
-radio8.pack(anchor='w')
-
 
 def work():
     ready_to_work = {}
-    radiobuttons_values = [var1.get(), var3.get(), var5.get(), var7.get()]
-    old_names = []
-    outers = []
-    new_names = []
-    rename = {}
+    radiobuttons_values = [var1.get(), database_var.get()]
     for item in selected_columns_tree.get_children():
         values = selected_columns_tree.item(item)["values"]
         table_name = values[0]
         column_value = values[1]
-        old_names.append(column_value)
         if table_name in ready_to_work:
             ready_to_work[table_name].append(column_value)
         else:
@@ -219,191 +174,19 @@ def work():
         messagebox.showerror("Ошибка", "Не выбраны столбцы")
         return
     flags = [bool(value) for value in radiobuttons_values]
-    if flags[1]:  # по хорошему, надо обернуть в функцию, но не хочется парится с этим
-        additional_window = tk.Toplevel(window)
-        additional_window.title("Переименование столбцов")
-        additional_window.resizable(width=False, height=True)
-        additional_window.geometry("375x500")
-
-        # Создание прокручиваемой области
-        canvas = tk.Canvas(additional_window)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # Создание виджета прокрутки
-        scrollbar = tk.Scrollbar(additional_window, command=canvas.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Привязка прокручиваемой области к виджету прокрутки
-        canvas.config(yscrollcommand=scrollbar.set)
-
-        # Создание фрейма в прокручиваемой области
-        frame = tk.Frame(canvas)
-
-        # Помещение фрейма в прокручиваемую область
-        canvas.create_window((0, 0), window=frame, anchor=tk.NW)
-
-        instr_label = tk.Label(
-            frame,
-            text='Введите новые имена для столбцов\nПри вводе пустой строки останется старое имя столбца'
-        )
-        instr_label.pack(pady=5)
-
-        entry_list = []
-
-        for name in old_names:
-            label = tk.Label(frame, text=f'Введите имя для столбца {name}')
-            label.pack(pady=5)
-
-            entry = tk.Entry(frame)
-            entry.pack(pady=5)
-            entry_list.append(entry)
-
-        new_names = []
-
-        def save_names():
-            for entry in entry_list:
-                new_names.append(entry.get())
-            additional_window.destroy()
-
-        # Создание вложенного фрейма для кнопки "Сохранить"
-        button_frame = tk.Frame(frame)
-        button_frame.pack(pady=10)
-
-        save_button = tk.Button(
-            button_frame, text="Сохранить", command=save_names)
-        save_button.pack()
-
-        # Обновление размеров прокручиваемой области при изменении содержимого
-        def update_scroll_region(event):
-            canvas.configure(scrollregion=canvas.bbox(tk.ALL))
-
-        frame.bind("<Configure>", update_scroll_region)
-
-        additional_window.protocol("WM_DELETE_WINDOW", save_names)
-        additional_window.wait_window(additional_window)
-    if flags[2]:  # edit outers
-        additional_window = tk.Toplevel(window)
-        additional_window.title("Задача пороговых значений")
-        additional_window.resizable(width=False, height=True)
-        additional_window.geometry("375x500")
-        canvas = tk.Canvas(additional_window)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar = tk.Scrollbar(additional_window, command=canvas.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.config(yscrollcommand=scrollbar.set)
-        frame = tk.Frame(canvas)
-        canvas.create_window((0, 0), window=frame, anchor=tk.NW)
-        instr_label = tk.Label(
-            frame,
-            text='Введите верхние пороговые значения для столбцов\nПри вводе любой не числовой строки,\n верхняя граница столбца будет определена автоматически'
-        )
-        instr_label.pack(pady=5)
-        entry_list = []
-        for name in old_names:
-            label = tk.Label(
-                frame, text=f'Введите верхнюю границу для столбца {name}')
-            label.pack(pady=5)
-
-            entry = tk.Entry(frame)
-            entry.pack(pady=5)
-            entry_list.append(entry)
-        outers = []
-
-        def save_names():
-            for entry in entry_list:
-                outers.append(entry.get())
-            additional_window.destroy()
-        button_frame = tk.Frame(frame)
-        button_frame.pack(pady=10)
-        save_button = tk.Button(
-            button_frame, text="Сохранить", command=save_names)
-        save_button.pack()
-
-        def update_scroll_region(event):
-            canvas.configure(scrollregion=canvas.bbox(tk.ALL))
-        frame.bind("<Configure>", update_scroll_region)
-        additional_window.protocol("WM_DELETE_WINDOW", save_names)
-        additional_window.wait_window(additional_window)
-    if flags[1]:
-        rename = {k: v for k, v in zip(old_names, new_names)}
-
+   
     output_file = output_file_name.cget('text')
     output_file = output_file[output_file.find(':')+2:]
     # print(output_file)
-    if len(outers) > 0:
-        if len(output_file) > 0:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    outers=outers,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    outers=outers,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-        else:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    outers=outers,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    outers=outers,
-                    database_var=database_var.get()
-                )
-    else:
-        if len(output_file) > 0:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-        else:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    database_var=database_var.get()
-                )
+    if output_file=='':
+        output_file='output'
+    create_csv.main_alghrotitm(
+        table_and_columns=ready_to_work,
+        database_path=database_entry.get(),
+        flags=flags,
+        output_file_name=output_file
+    )
+    
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",

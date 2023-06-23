@@ -1,43 +1,94 @@
 # create_csv.py
 import pandas as pd
 import sqlite3
-from datetime import datetime
 import pyodbc
 
+# database = r'C:\Users\Vexrina\Desktop\projects\practice\Obluchok.sqlite'
+# tables_and_collumns = {
+#     # 'EventsShsm': ['Name', 'Type', 'Identifier'],
+#     'EventsSHUM': ['Name', 'Type', 'Identifier'],
+#     # 'Events7XA': ['Name', 'Type', 'Identifier'],
+#     'EventsAvtuk': ['Name', 'Type', 'Identifier'],
+# }
 
-def create_pd_table(data, flag_sort):
-    # Создание пустой пандас таблицы
-    try:
-        df = pd.DataFrame().from_dict(data[0])
-        for i in range(1, len(data)):
-            temp = pd.DataFrame().from_dict(data[i])
-            temp['Time'] = temp['Time'].astype(str)
-            df = df.merge(temp, on='Time', how='outer')
-    except ValueError:
-        df = pd.DataFrame().from_dict(data[0])
-        for i in range(1, len(data)):
-            temp = pd.DataFrame().from_dict(data[i])
-            temp['Time'] = pd.to_datetime(temp['Time'])
-            df = df.merge(temp, on='Time', how='outer')
+
+def pre_processing_df(dataframe: pd.DataFrame):
+    new_df = pd.DataFrame(columns=['Name', 'ID', 'Приход', 'Уход',
+                                   'Длительность', 'Квитирование']
+                          )
+    index = 0
+    iteration = 0
+    while index < len(dataframe):
+        iteration += 1
+        row = dataframe.iloc[index]
+        new_row = {
+            'Name': row['Name'],
+            'ID': row['Identifier'],
+        }
+        if row['Type'] == 0:
+            name, id = row['Name'], row['Identifier']
+            new_index = index
+            for inner_index, inner_row in dataframe.iloc[index:].iterrows():
+                if name == inner_row['Name'] and inner_row['Type'] == 1:
+                    new_index = inner_index
+                    break
+            if new_index > index:
+                time_start = pd.to_datetime(
+                    row['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
+                time_start = pd.to_datetime(
+                    time_start.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+                time_end = pd.to_datetime(
+                    dataframe.iloc[new_index]['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
+                time_end = pd.to_datetime(
+                    time_end.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+                new_row['Приход'] = time_start
+                new_row['Уход'] = time_end
+                new_row['Длительность'] = new_row['Уход'] - new_row['Приход']
+                new_row['Квитирование'] = '---'
+            else:
+                time_start = pd.to_datetime(
+                    row['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
+                time_start = pd.to_datetime(
+                    time_start.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+                new_row['Приход'] = time_start
+                new_row['Уход'] = '---'
+                new_row['Длительность'] = '---'
+                new_row['Квитирование'] = '---'
+            new_df = pd.concat(
+                [new_df, pd.DataFrame([new_row])], ignore_index=True)
+            dataframe = dataframe.drop(new_index).reset_index(drop=True)
+            index += 1
+        if row['Type'] == 2:
+            name, id = row['Name'], row['Identifier']
+            inner_index = len(new_df)-1
+            while inner_index > 0:
+                inner_row = new_df.iloc[inner_index].copy()
+                if inner_row['Name'] == name and inner_row['ID'] == id and inner_row['Квитирование'] == '---':
+                    inner_row['Квитирование'] = pd.to_datetime(
+                        time_start.strftime("%Y-%m-%d %H:%M:%S.%f"))
+                    break
+                inner_index -= 1
+            new_df.loc[inner_index] = inner_row
+            dataframe = dataframe.drop(index).reset_index(drop=True)
+            index += 1
+        if row['Type'] == 1:
+            index += 1
+    return new_df
+
+
+def create_pd_table(data, flag_sort, need_names):
+    df_list = []
+    for i in range(len(data)):
+        df = pd.DataFrame.from_dict(data[i])
+        df = pre_processing_df(df)
+        df = df[df['Name'].isin(need_names[i])]
+        df_list.append(df)
+    result_df = pd.concat(df_list, axis=0)
     if not flag_sort:
-        df = df.sort_values(by='Time')
+        result_df = result_df.sort_values('Приход')
     else:
-        df = df.sort_values(by='Time', ascending=False)
-    df.insert(0, 'Time', df.pop('Time'))
-    df = df.reset_index(drop=True)
-    return df
-
-
-def quality(data):
-    return data.apply(lambda x: x if x == 192 else None)
-
-
-def upper(data):
-    mean_val = data.mean()
-    max_val = data.max()
-    threshold = mean_val + (max_val - mean_val) / 2
-    data = data[data <= threshold]
-    return data
+        result_df = result_df.sort_values('Приход', ascending=False)
+    return result_df
 
 
 def take_data_sqlite(table, column, database_path):
@@ -76,153 +127,33 @@ def take_data_mssql(table, column, connection_string):
 
 def take_datas(table_and_columns, database, database_var=0):
     array_of_dict = [{} for __ in range(len(table_and_columns.keys()))]
-    k = 0
+    data = ['Name', 'Type', 'Identifier', 'Time']
     if database_var == 0:
         for table in table_and_columns.keys():
-            array = table_and_columns[table]
-            for column in array:
-                array_of_dict[k][column] = take_data_sqlite(table.replace(
-                    " ", ""), column.replace(" ", ""), database)
-                try:
-                    quality_str = 'Quality_'+column.replace(" ", "")
-                    quality_data = take_data_sqlite(table.replace(
-                        " ", ""), quality_str, database)
-                    array_of_dict[k][quality_str] = quality_data
-                except:
-                    continue
-            array_of_dict[k]['Time'] = take_data_sqlite(
-                table.replace(" ", ""), 'Time', database)
-            k += 1
+            table_data = {}
+            for column in data:
+                table_data[column] = take_data_sqlite(table, column, database)
+            array_of_dict.append(table_data)
     else:
         for table in table_and_columns.keys():
-            array = table_and_columns[table]
-            for column in array:
-                array_of_dict[k][column] = take_data_mssql(table.replace(
-                    " ", ""), column.replace(" ", ""), database)
-                try:
-                    quality_str = 'Quality_'+column.replace(" ", "")
-                    quality_data = take_data_mssql(table.replace(
-                        " ", ""), quality_str, database)
-                    array_of_dict[k][quality_str] = quality_data
-                except:
-                    continue
-            array_of_dict[k]['Time'] = take_data_mssql(
-                table.replace(" ", ""), 'Time', database)
-            k += 1
+            table_data = {}
+            for column in data:
+                table_data[column] = take_data_mssql(table, column, database)
+            array_of_dict.append(table_data)
     return array_of_dict
 
 
-def get_table_data(table_name, database_path):
-    # Подключение к базе данных SQLite
-    conn = sqlite3.connect(database_path)
-    cursor = conn.cursor()
-
-    # Выполнение запроса SELECT для получения всей таблицы
-    query = f"SELECT * FROM {table_name}"
-    cursor.execute(query)
-
-    # Извлечение данных из результата запроса
-    table_data = cursor.fetchall()
-
-    # Закрытие соединения с базой данных
-    cursor.close()
-    conn.close()
-
-    return table_data
+def save_csv(dataframe: pd.DataFrame, output_file):
+    dataframe.to_excel(f'{output_file}.xlsx', index=False)
 
 
-def user_upper(data, value):
-    try:
-        threshhold = int(value)
-        return data[data <= threshhold]
-    except:
-        return upper(data)
-
-
-def processing_df(dataframe, flag_Time, user_outers, flag_outer=False):
-    not_number = [
-        'Name', 'Time', 'Tel_Number', 'Comp_Name', 'Object_Name',
-        'Ser_Number', 'message', 'core_start_time', 'psw',
-        'Trans_Mode', 'Prod_Fact', 'Stat_Name', 'TOil'
-    ]
-    try:
-        dataframe['Time'] = dataframe['Time'].apply(
-            lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f'))
-    except ValueError:
-        dataframe['Time'] = dataframe['Time'].dt.strftime(
-            '%Y-%m-%dT%H:%M:%S.%f')
-        dataframe['Time'] = dataframe['Time'].apply(
-            lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f'))
-    except TypeError:
-        print('that is mssql')
-
-    if not flag_Time:
-        dataframe['Time'] = dataframe['Time'].apply(
-            lambda x: x.strftime('%Y-%m-%d %H:00:00'))
-    else:
-        dataframe['Time'] = dataframe['Time'].apply(
-            lambda x: x.strftime('%Y-%m-%d %H:%M:00'))
-
-    k = 0
-
-    for column_name, column in dataframe.items():
-        if column_name not in not_number and column_name.find('Quality_') == -1:
-            if flag_outer:
-                dataframe[column_name] = user_upper(column, user_outers[k])
-                k += 1
-            else:
-                dataframe[column_name] = upper(column)
-        elif column_name.find('Quality_') == 0:
-            dataframe[column_name] = quality(column)
-        elif column_name == 'Time':
-            continue
-        elif column_name in not_number:
-            k += 1
-
-    dataframe = dataframe.dropna(
-        subset=dataframe.columns[dataframe.columns != 'Time'], how='all')
-
-    return dataframe
-
-
-def save_csv(dataframe, output_file):
-    dataframe.to_csv(f'{output_file}.csv', index=False)
-
-
-def rename_columns(dataframe, new_names):
-    columns = dataframe.columns.tolist()
-    new_columns = ['Time']
-    k = 1
-    while k < len(columns)-1:
-        if columns[k+1] == 'Quality_'+columns[k]:
-            if new_names[columns[k]] == '':
-                new_columns.append(columns[k])
-                new_columns.append('Quality '+columns[k])
-                k += 2
-            else:
-                new_columns.append(new_names[columns[k]])
-                new_columns.append('Quality '+new_names[columns[k]])
-                k += 2
-        else:
-            if new_names[columns[k]] == '':
-                new_columns.append(columns[k])
-                k += 1
-            else:
-                new_columns.append(columns[k])
-                k += 1
-    if len(columns) != len(new_columns):
-        if new_names[columns[-1]] == '':
-            new_columns.append(columns[-1])
-        else:
-            new_columns.append(new_names[columns[-1]])
-    dataframe.columns = new_columns
-    return dataframe
-
-
-def main_alghrotitm(table_and_columns, database_path, flags, new_names={}, outers=[], output_file_name='output', database_var=0):
-    taken = take_datas(table_and_columns, database_path, database_var)
-    df = create_pd_table(taken, flags[0])
-    processing_df(df, flags[-1], outers, flags[-2])
-    if flags[1]:
-        df = rename_columns(df, new_names)
+def main_alghrotitm(table_and_columns: dict, database_path, flags, output_file_name):
+    taken = take_datas(table_and_columns, database_path, flags[1])
+    # print(taken)
+    taken = [k for k in taken if k != {}]
+    need_names = [table_and_columns[k] for k in table_and_columns.keys()]
+    df = create_pd_table(taken, flags[0], need_names)
+    df['Длительность'] = df['Длительность'].astype(str)
     save_csv(df, output_file_name)
+
+# main_alghrotitm(tables_and_collumns, database, [0, 0, 0, 0])

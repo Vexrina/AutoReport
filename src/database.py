@@ -2,7 +2,6 @@
 import tkinter as tk
 from tkinter import filedialog
 import sqlite3
-from tkinter import ttk
 import pyodbc
 
 
@@ -46,7 +45,7 @@ def connect_to_msql(msql_window, server_entry, database_entry, username_entry, p
     password = password_entry.get()
     # connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
     connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-    entry.delete(0,tk.END)
+    entry.delete(0, tk.END)
     entry.insert(tk.END, connection_string)
     # print(connection_string)
     display_mssql_tables(table_tree, selected_tables, connection_string)
@@ -54,37 +53,29 @@ def connect_to_msql(msql_window, server_entry, database_entry, username_entry, p
 
 
 def tables_mssql_info(connection_string):
+    # Устанавливаем соединение с базой данных
     conn = pyodbc.connect(connection_string)
+
     # Создаем курсор для выполнения SQL-запросов
     cursor = conn.cursor()
 
     # Получаем список таблиц в базе данных
-    cursor.execute(
-        "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';")
     tables_and_columns = {}
-    tables = cursor.fetchall()
+    tables = cursor.tables(tableType='TABLE')
 
     for table in tables:
-        tables_and_columns[table[0]] = []
+        tables_and_columns[table.table_name] = []
 
     for table_name in tables_and_columns.keys():
-        # Получаем список столбцов в таблице
-        cursor.execute(
-            f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{table_name}';")
-        columns = cursor.fetchall()
-        # Выводим список столбцов
-        for column in columns:
-            tables_and_columns[table_name].append(column[0])
+        try:
+            cursor.execute(f"SELECT DISTINCT Name FROM {table_name};")
+            unique_names = [row.Name for row in cursor.fetchall()]
+            tables_and_columns[table_name] = unique_names
+        except pyodbc.ProgrammingError:
+            continue
 
     conn.close()
 
-    wo_time = []
-    for key in tables_and_columns.keys():
-        if 'Time' not in tables_and_columns[key]:
-            wo_time.append(key)
-
-    for item in wo_time:
-        tables_and_columns.pop(item)
     return tables_and_columns
 
 
@@ -126,7 +117,6 @@ def open_time_window(window, labels):
 
 def select_database_file(entry, table_tree, selected_tables, window, labels, database_var):
     if database_var.get() == 1:
-        # print(database_var.get())
         open_MSSQL_window(window, table_tree, selected_tables, entry)
     else:
         file_path = filedialog.askopenfilename(
@@ -134,7 +124,7 @@ def select_database_file(entry, table_tree, selected_tables, window, labels, dat
         entry.delete(0, tk.END)
         entry.insert(tk.END, file_path)
         display_tables(file_path, table_tree, selected_tables)
-        open_time_window(window, labels)
+    # open_time_window(window, labels)
 
 
 def save_data(time_window, time, output_file, labels):
@@ -183,22 +173,15 @@ def tables_info(database_file: str) -> dict:
             tables_and_columns[table[0]] = []
 
     for table_name in tables_and_columns.keys():
-        # Получаем список столбцов в таблице
-        cursor.execute(f"PRAGMA table_info({table_name})")
-        columns = cursor.fetchall()
-        # Выводим список столбцов
-        for column in columns:
-            tables_and_columns[table_name].append(column[1])
+        try:
+            cursor.execute(f"SELECT DISTINCT Name FROM {table_name};")
+            unique_names = [row[0] for row in cursor.fetchall()]
+            tables_and_columns[table_name] = unique_names
+        except sqlite3.OperationalError:
+            continue
 
     conn.close()
 
-    wo_time = []
-    for key in tables_and_columns.keys():
-        if 'Time' not in tables_and_columns[key]:
-            wo_time.append(key)
-
-    for item in wo_time:
-        tables_and_columns.pop(item)
     return tables_and_columns
 
 
