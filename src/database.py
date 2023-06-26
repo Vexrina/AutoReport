@@ -1,6 +1,6 @@
 # database.py
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import sqlite3
 from tkinter import ttk
 import pyodbc
@@ -40,17 +40,41 @@ def open_MSSQL_window(window, table_tree, selected_tables, gui_entry):
 
 
 def connect_to_msql(msql_window, server_entry, database_entry, username_entry, password_entry, table_tree, selected_tables, entry):
-    server = server_entry.get()
-    database = database_entry.get()
-    username = username_entry.get()
-    password = password_entry.get()
-    # connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
-    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-    entry.delete(0,tk.END)
-    entry.insert(tk.END, connection_string)
-    # print(connection_string)
-    display_mssql_tables(table_tree, selected_tables, connection_string)
-    msql_window.destroy()
+    try:
+        server = server_entry.get()
+        database = database_entry.get()
+        username = username_entry.get()
+        password = password_entry.get()
+        # connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
+        DRIVER_NAME = 'SQL SERVER'
+        connection_string = f"""
+            DRIVER={{{DRIVER_NAME}}};
+            SERVER={server};
+            DATABASE={database};
+            uid={username};
+            pwd={password};
+        """
+        entry.delete(0, tk.END)
+        entry.insert(tk.END, connection_string)
+        # print(connection_string)
+        display_mssql_tables(table_tree, selected_tables, connection_string)
+        msql_window.destroy()
+
+    except pyodbc.OperationalError:
+        messagebox.showerror(
+            "Ошибка",
+            "SQL Server не существует, или доступ запрещён."
+        )
+    except pyodbc.InterfaceError:
+        messagebox.showerror(
+            "Ошибка",
+            f"При входе в систему пользователя \"{username}\" произошла ошибка."
+        )
+    except pyodbc.ProgrammingError:
+        messagebox.showerror(
+            "Ошибка",
+            f"Не удается открыть базу данных \"{database}\", запрашиваемую именем входа. Не удалось выполнить вход."
+        )
 
 
 def tables_mssql_info(connection_string):
@@ -126,7 +150,6 @@ def open_time_window(window, labels):
 
 def select_database_file(entry, table_tree, selected_tables, window, labels, database_var):
     if database_var.get() == 1:
-        # print(database_var.get())
         open_MSSQL_window(window, table_tree, selected_tables, entry)
     else:
         file_path = filedialog.askopenfilename(
@@ -134,8 +157,7 @@ def select_database_file(entry, table_tree, selected_tables, window, labels, dat
         entry.delete(0, tk.END)
         entry.insert(tk.END, file_path)
         display_tables(file_path, table_tree, selected_tables)
-        open_time_window(window, labels)
-
+    open_time_window(window, labels)
 
 def save_data(time_window, time, output_file, labels):
     # Сохранение времени и имени файла
