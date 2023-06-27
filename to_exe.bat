@@ -1,0 +1,1 @@
+py -3.7 -m PyInstaller --noconfirm --onefile --windowed  "C:/Users/Vexrina/Desktop/projects/practice/src/main.py"

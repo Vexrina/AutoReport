@@ -1,6 +1,8 @@
 # db file, a lot of size
 YERMAK_T?.sqlite*
 *.docx
+Obluchok.sqlite
+debug.py
 
 /build/*
 /dist/*

@@ -109,7 +109,8 @@ def tables_mssql_info(connection_string):
 
     for item in wo_time:
         tables_and_columns.pop(item)
-    return tables_and_columns
+    sorted_t_a_c = dict(sorted(tables_and_columns.items()))
+    return sorted_t_a_c
 
 
 def display_mssql_tables(table_tree, selected_tables, connection_string):
@@ -158,6 +159,7 @@ def select_database_file(entry, table_tree, selected_tables, window, labels, dat
         entry.insert(tk.END, file_path)
         display_tables(file_path, table_tree, selected_tables)
     open_time_window(window, labels)
+
 
 def save_data(time_window, time, output_file, labels):
     # Сохранение времени и имени файла
@@ -221,7 +223,8 @@ def tables_info(database_file: str) -> dict:
 
     for item in wo_time:
         tables_and_columns.pop(item)
-    return tables_and_columns
+    sorted_t_a_c = dict(sorted(tables_and_columns.items()))
+    return sorted_t_a_c
 
 
 def display_tables(database_file, table_tree, selected_tables):

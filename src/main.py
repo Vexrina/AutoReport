@@ -46,7 +46,8 @@ def select_columns():
 
         column_frame = tk.Frame(column_window)
         column_frame.pack(pady=10, anchor='w')
-
+        table_name_label = tk.Label(column_frame, text=table_name)
+        table_name_label.pack()
         column_tree = ttk.Treeview(column_frame, columns=(
             "Checkbox", "Column"), show="headings", height=10)
         column_tree.heading("Checkbox", text="")

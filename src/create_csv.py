@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 import pyodbc
+import numpy as np
 
 
 def create_pd_table(data, flag_sort):
@@ -173,11 +174,23 @@ def processing_df(dataframe, flag_Time, user_outers, flag_outer=False):
             else:
                 dataframe[column_name] = upper(column)
         elif column_name.find('Quality_') == 0:
-            dataframe[column_name] = quality(column)
+            # dataframe[column_name] = quality(column)
+            continue
         elif column_name == 'Time':
             continue
         elif column_name in not_number:
             k += 1
+
+    # Получение уникальных подстрок из названий колонок "smth"
+    column_substrings = set([col.replace('Quality_', '')
+                            for col in dataframe.columns if col.startswith('Quality_')])
+
+    # Применение логики для каждой пары колонок
+    for substring in column_substrings:
+        smth_col = substring
+        quality_col = 'Quality_' + substring
+        dataframe[smth_col] = np.where(
+            dataframe[quality_col] == 192, dataframe[smth_col], np.nan)
 
     dataframe = dataframe.dropna(
         subset=dataframe.columns[dataframe.columns != 'Time'], how='all')
