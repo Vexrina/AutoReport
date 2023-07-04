@@ -1,16 +1,10 @@
 # db file, a lot of size
 YERMAK_T?.sqlite*
-*.docx
 Obluchok.sqlite
+#technical requirements and pyinstaller
+*.docx
+/output_folder
 debug.py
-
-/build/*
-/dist/*
-/src/build/*
-/src/.idea/*
-/src/dist/*
-/src/main.spec
-main.spec
 
 .DS_Store
 .huskyrc.json
