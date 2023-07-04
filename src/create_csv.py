@@ -134,10 +134,19 @@ def get_table_data(table_name, database_path):
 
 def user_upper(data, value):
     try:
-        threshhold = int(value)
-        return data[data <= threshhold]
-    except:
-        return upper(data)
+        upper_threshold = int(value[0])
+    except ValueError:
+        try:
+            bottom_threshold = int(value[1])
+            return data[bottom_threshold <= data]
+        except (ValueError, IndexError):
+            return data
+    else:
+        try:
+            bottom_threshold = int(value[1])
+            return data[(data <= upper_threshold) & (bottom_threshold <= data)]
+        except (ValueError, IndexError):
+            return data
 
 
 def processing_df(dataframe, flag_Time, user_outers, flag_outer=False):
@@ -171,8 +180,8 @@ def processing_df(dataframe, flag_Time, user_outers, flag_outer=False):
             if flag_outer:
                 dataframe[column_name] = user_upper(column, user_outers[k])
                 k += 1
-            else:
-                dataframe[column_name] = upper(column)
+            # else:
+            #     dataframe[column_name] = upper(column)
         elif column_name.find('Quality_') == 0:
             # dataframe[column_name] = quality(column)
             continue
@@ -232,10 +241,20 @@ def rename_columns(dataframe, new_names):
     return dataframe
 
 
-def main_alghrotitm(table_and_columns, database_path, flags, new_names={}, outers=[], output_file_name='output', database_var=0):
+def main_alghrotitm(table_and_columns, database_path, flags, new_names={}, outers=[], output_file_name='output', database_var=0, date_limit=[]):
+    # print(date_limit)
     taken = take_datas(table_and_columns, database_path, database_var)
     df = create_pd_table(taken, flags[0])
     processing_df(df, flags[-1], outers, flags[-2])
     if flags[1]:
         df = rename_columns(df, new_names)
-    save_csv(df, output_file_name)
+    if flags[-1]:
+        date_limit = [datetime.strptime(date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in date_limit]
+        # Преобразование колонки 'Time' в тип данных datetime
+        df['Time'] = pd.to_datetime(df['Time'])
+
+        # Фильтрация строк по заданным границам дат
+        filtered_df = df[(df['Time'] >= date_limit[0]) & (df['Time'] <= date_limit[1])]
+        save_csv(filtered_df, output_file_name)
+    else:
+        save_csv(df,output_file_name)

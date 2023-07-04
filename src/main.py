@@ -5,6 +5,8 @@ from tkinter import messagebox
 from database import select_database_file, toggle_checkbox_state, toggle_all_checkboxes, update_checkbox_header, tables_info, tables_mssql_info
 import create_csv
 import re
+from tkcalendar import Calendar
+from datetime import date
 
 
 selected_tables = []
@@ -131,7 +133,7 @@ database_entry = tk.Entry(left_frame, width=30)
 database_entry.pack(pady=10, anchor='w')
 
 select_button = tk.Button(left_frame, text="Выбрать базу данных", command=lambda: select_database_file(
-    database_entry, table_tree, selected_tables, window, labels=[remaining_time_label, output_file_name], database_var=database_var))
+    database_entry, table_tree, selected_tables, window, labels=[output_file_name], database_var=database_var))
 select_button.pack(anchor='w', pady=5)
 
 table_frame = tk.Frame(left_frame)
@@ -160,9 +162,6 @@ select_columns_button = tk.Button(
     right_frame, text="Выбрать столбцы", command=select_columns)
 select_columns_button.pack(anchor='w', pady=5)
 
-remaining_time_label = tk.Label(right_frame, text="Оставшееся время: 0 секунд")
-remaining_time_label.pack()
-
 output_file_name = tk.Label(right_frame, text="Имя выходного файла: ")
 output_file_name.pack()
 
@@ -170,6 +169,7 @@ var1 = tk.IntVar()
 var3 = tk.IntVar()
 var5 = tk.IntVar()
 var7 = tk.IntVar()
+var9 = tk.IntVar()
 
 radio1 = tk.Radiobutton(right_frame, text="Сортировать время по возрастанию",
                         variable=var1, value=0)
@@ -199,10 +199,18 @@ radio8 = tk.Radiobutton(right_frame, text="Формат времени: HH:00:00
                         variable=var7, value=0)
 radio8.pack(anchor='w')
 
+radio9 = tk.Radiobutton(right_frame, text="Выбрать диапазон данных",
+                        variable=var9, value=1)
+radio9.pack(anchor='w')
+radio10 = tk.Radiobutton(right_frame, text="Не выбирать диапазон данных",
+                         variable=var9, value=0)
+radio10.pack(anchor='w')
+
 
 def work():
     ready_to_work = {}
-    radiobuttons_values = [var1.get(), var3.get(), var5.get(), var7.get()]
+    radiobuttons_values = [
+        var1.get(), var3.get(), var5.get(), var7.get(), var9.get()]
     old_names = []
     outers = []
     new_names = []
@@ -307,12 +315,20 @@ def work():
 
             entry = tk.Entry(frame)
             entry.pack(pady=5)
+            label = tk.Label(
+                frame, text=f'Введите нижнюю границу для столбца {name}')
+            label.pack(pady=5)
+
+            entry = tk.Entry(frame)
+            entry.pack(pady=5)
             entry_list.append(entry)
         outers = []
 
         def save_names():
-            for entry in entry_list:
-                outers.append(entry.get())
+            ind = 0
+            while ind < len(entry_list):
+                outers.append((entry_list[ind], entry_list[ind+1]))
+                ind += 1
             additional_window.destroy()
         button_frame = tk.Frame(frame)
         button_frame.pack(pady=10)
@@ -327,84 +343,52 @@ def work():
         additional_window.wait_window(additional_window)
     if flags[1]:
         rename = {k: v for k, v in zip(old_names, new_names)}
+    date_limit = []
+    if flags[-1]:
+        additional_window = tk.Toplevel(window)
+        additional_window.title("Задача диапазона времени")
+        additional_window.resizable(width=False, height=True)
+        additional_window.geometry("375x500")
+        today = date.today()
 
+        def on_date_select(date1, date2):
+            date_limit.append(date1)
+            date_limit.append(date2)
+            additional_window.destroy()
+        label1 = tk.Label(
+            additional_window, text=f'Введите верхнюю границу времени')
+        label1.pack(pady=5)
+        calendar1 = Calendar(additional_window, selectmode="day", date_pattern="dd-mm-yyyy",
+                             year=today.year, month=today.month, day=today.day)
+        # calendar1.set_title("Верхняя граница времени")
+        calendar1.pack(pady=2)
+
+        label2 = tk.Label(
+            additional_window, text=f'Введите нижнюю границу времени')
+        label2.pack(pady=5)
+        calendar2 = Calendar(additional_window, selectmode="day", date_pattern="dd-mm-yyyy",
+                             year=today.year, month=today.month, day=today.day)
+        # calendar2.set_title("Верхняя граница времени")
+        calendar2.pack(pady=2)
+
+        button = tk.Button(additional_window, text="Выбрать",
+                           command=lambda: on_date_select(calendar1.get_date(), calendar2.get_date()))
+        button.pack(pady=5)
+
+        additional_window.wait_window(additional_window)
     output_file = output_file_name.cget('text')
     output_file = output_file[output_file.find(':')+2:]
-    # print(output_file)
-    if len(outers) > 0:
-        if len(output_file) > 0:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    outers=outers,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    outers=outers,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-        else:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    outers=outers,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    outers=outers,
-                    database_var=database_var.get()
-                )
-    else:
-        if len(output_file) > 0:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    output_file_name=output_file,
-                    database_var=database_var.get()
-                )
-        else:
-            if len(rename) > 0:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    new_names=rename,
-                    database_var=database_var.get()
-                )
-            else:
-                create_csv.main_alghrotitm(
-                    table_and_columns=ready_to_work,
-                    database_path=database_entry.get(),
-                    flags=flags,
-                    database_var=database_var.get()
-                )
+
+    create_csv.main_alghrotitm(
+        table_and_columns=ready_to_work,
+        database_path=database_entry.get(),
+        flags=flags,
+        new_names=rename if len(rename) > 0 else {},
+        outers=outers if len(outers) > 0 else [],
+        output_file_name=output_file if len(output_file) > 0 else 'output',
+        database_var=database_var.get(),
+        date_limit=date_limit if len(date_limit) > 0 else []
+    )
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",
