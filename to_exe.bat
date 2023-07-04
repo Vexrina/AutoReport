@@ -1,1 +1,2 @@
-py -3.7 -m PyInstaller --noconfirm --onefile --windowed  "C:/Users/Vexrina/Desktop/projects/practice/src/main.py"
+cd C:\Users\Vexrina\Desktop\projects\practice\output_folder
+py -3.7 -m PyInstaller --hidden-import babel.numbers --noconfirm --onefile --windowed  "C:/Users/Vexrina/Desktop/projects/practice/src/main.py"
