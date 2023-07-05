@@ -1,6 +1,6 @@
 # database.py
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import sqlite3
 import pyodbc
 
@@ -39,17 +39,41 @@ def open_MSSQL_window(window, table_tree, selected_tables, gui_entry):
 
 
 def connect_to_msql(msql_window, server_entry, database_entry, username_entry, password_entry, table_tree, selected_tables, entry):
-    server = server_entry.get()
-    database = database_entry.get()
-    username = username_entry.get()
-    password = password_entry.get()
-    # connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
-    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-    entry.delete(0, tk.END)
-    entry.insert(tk.END, connection_string)
-    # print(connection_string)
-    display_mssql_tables(table_tree, selected_tables, connection_string)
-    msql_window.destroy()
+    try:
+        server = server_entry.get()
+        database = database_entry.get()
+        username = username_entry.get()
+        password = password_entry.get()
+        # connection_string = f"DRIVER={{SQL Server}};SERVER=DESKTOP-28I0R39;DATABASE={database};Trusted_Connection=yes;"
+        DRIVER_NAME = 'SQL SERVER'
+        connection_string = f"""
+            DRIVER={{{DRIVER_NAME}}};
+            SERVER={server};
+            DATABASE={database};
+            uid={username};
+            pwd={password};
+        """
+        entry.delete(0, tk.END)
+        entry.insert(tk.END, connection_string)
+        # print(connection_string)
+        display_mssql_tables(table_tree, selected_tables, connection_string)
+        msql_window.destroy()
+
+    except pyodbc.OperationalError:
+        messagebox.showerror(
+            "Ошибка",
+            "SQL Server не существует, или доступ запрещён."
+        )
+    except pyodbc.InterfaceError:
+        messagebox.showerror(
+            "Ошибка",
+            f"При входе в систему пользователя \"{username}\" произошла ошибка."
+        )
+    except pyodbc.ProgrammingError:
+        messagebox.showerror(
+            "Ошибка",
+            f"Не удается открыть базу данных \"{database}\", запрашиваемую именем входа. Не удалось выполнить вход."
+        )
 
 
 def tables_mssql_info(connection_string):
@@ -75,8 +99,8 @@ def tables_mssql_info(connection_string):
             continue
 
     conn.close()
-
-    return tables_and_columns
+    sorted_t_a_c = dict(sorted(tables_and_columns.items()))
+    return sorted_t_a_c
 
 
 def display_mssql_tables(table_tree, selected_tables, connection_string):
@@ -90,15 +114,7 @@ def display_mssql_tables(table_tree, selected_tables, connection_string):
 
 def open_time_window(window, labels):
     time_window = tk.Toplevel(window)
-    time_window.title("Время и выходной файл")
-
-    # Метка для времени
-    time_label = tk.Label(time_window, text="Введите время (мм:сс):")
-    time_label.pack(pady=10)
-
-    # Поле для ввода времени
-    time_entry = tk.Entry(time_window, width=10)
-    time_entry.pack()
+    time_window.title("Введите имя выходного файла")
 
     # Метка для выходного файла
     output_file_label = tk.Label(
@@ -111,11 +127,11 @@ def open_time_window(window, labels):
 
     # Кнопка подтверждения
     confirm_button = tk.Button(time_window, text="Подтвердить", command=lambda: save_data(
-        time_window, time_entry.get(), output_file_entry.get(), labels))
+        time_window, output_file_entry.get(), labels))
     confirm_button.pack(pady=10)
 
 
-def select_database_file(entry, table_tree, selected_tables, window, labels, database_var):
+def select_database_file(entry, table_tree, selected_tables, window, label, database_var):
     if database_var.get() == 1:
         open_MSSQL_window(window, table_tree, selected_tables, entry)
     else:
@@ -124,36 +140,14 @@ def select_database_file(entry, table_tree, selected_tables, window, labels, dat
         entry.delete(0, tk.END)
         entry.insert(tk.END, file_path)
         display_tables(file_path, table_tree, selected_tables)
-    # open_time_window(window, labels)
+    open_time_window(window, label)
 
 
-def save_data(time_window, time, output_file, labels):
-    # Сохранение времени и имени файла
-    time_sec = time.split(':')
-    rem_time = int(time_sec[0])*60+int(time_sec[1])
-    labels[0]["text"] = f"Оставшееся время: {rem_time} секунд"
-    labels[1]["text"] = f"Имя выходного файла: {output_file}"
+def save_data(time_window, output_file, label):
+    label["text"] = f"Имя выходного файла: {output_file}"
 
     # Дополнительные действия, если необходимо
     time_window.destroy()
-    update_timer(labels[0])
-
-
-def update_timer(label):
-    current_text = label.cget("text")  # Получение текущего текста метки
-    time_start = current_text.find(":") + 2  # Индекс начала значения времени
-    time_end = current_text.find(" секунд")  # Индекс конца значения времени
-    # Извлечение текущего значения времени
-    remaining_time = int(current_text[time_start:time_end])
-
-    if remaining_time > 0:
-        remaining_time -= 1
-        # Формирование нового текста метки
-        new_text = current_text[:time_start] + \
-            str(remaining_time) + current_text[time_end:]
-        label.config(text=new_text)
-        # Запуск функции через 1 секунду
-        label.after(1000, update_timer, label)
 
 
 def tables_info(database_file: str) -> dict:
@@ -181,8 +175,8 @@ def tables_info(database_file: str) -> dict:
             continue
 
     conn.close()
-
-    return tables_and_columns
+    sorted_t_a_c = dict(sorted(tables_and_columns.items()))
+    return sorted_t_a_c
 
 
 def display_tables(database_file, table_tree, selected_tables):

@@ -33,53 +33,62 @@ def pre_processing_df(dataframe: pd.DataFrame):
                     new_index = inner_index
                     break
             if new_index > index:
-                time_start = pd.to_datetime(
-                    row['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
-                time_start = pd.to_datetime(
-                    time_start.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
-                time_end = pd.to_datetime(
-                    dataframe.iloc[new_index]['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
-                time_end = pd.to_datetime(
-                    time_end.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
-                new_row['Приход'] = time_start
-                new_row['Уход'] = time_end
+                time_start = row['Time']
+                time_end = dataframe.iloc[new_index]['Time']
+                new_row['Приход'] = pd.to_datetime(time_start)
+                new_row['Уход'] = pd.to_datetime(time_end)
                 new_row['Длительность'] = new_row['Уход'] - new_row['Приход']
                 new_row['Квитирование'] = '---'
             else:
-                time_start = pd.to_datetime(
-                    row['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
-                time_start = pd.to_datetime(
-                    time_start.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
-                new_row['Приход'] = time_start
+                time_start = row['Time']
+                new_row['Приход'] = pd.to_datetime(time_start)
                 new_row['Уход'] = '---'
                 new_row['Длительность'] = '---'
                 new_row['Квитирование'] = '---'
             new_df = pd.concat(
                 [new_df, pd.DataFrame([new_row])], ignore_index=True)
-            dataframe = dataframe.drop(new_index).reset_index(drop=True)
-            index += 1
+            dataframe = dataframe.drop(
+                dataframe.index[0]).reset_index(drop=True)
+            # index += 1
         if row['Type'] == 2:
             name, id = row['Name'], row['Identifier']
             inner_index = len(new_df)-1
             while inner_index > 0:
                 inner_row = new_df.iloc[inner_index].copy()
                 if inner_row['Name'] == name and inner_row['ID'] == id and inner_row['Квитирование'] == '---':
-                    inner_row['Квитирование'] = pd.to_datetime(
-                        time_start.strftime("%Y-%m-%d %H:%M:%S.%f"))
+                    inner_row['Квитирование'] = pd.to_datetime(row['Time'])
                     break
                 inner_index -= 1
-            new_df.loc[inner_index] = inner_row
-            dataframe = dataframe.drop(index).reset_index(drop=True)
-            index += 1
+            if inner_index > 0:
+                new_df.loc[inner_index] = inner_row
+                dataframe = dataframe.drop(
+                    dataframe.index[0]).reset_index(drop=True)
+            else:
+                time_kvit = row['Time']
+                new_row['Приход'] = '---'
+                new_row['Уход'] = '---'
+                new_row['Длительность'] = '---'
+                new_row['Квитирование'] = pd.to_datetime(time_kvit)
+                dataframe = dataframe.drop(
+                    dataframe.index[0]).reset_index(drop=True)
+            # index += 1
         if row['Type'] == 1:
-            index += 1
+            time_end = row['Time']
+            new_row['Приход'] = '---'
+            new_row['Уход'] = pd.to_datetime(time_end)
+            new_row['Длительность'] = '---'
+            new_row['Квитирование'] = '---'
+            dataframe = dataframe.drop(
+                dataframe.index[0]).reset_index(drop=True)
     return new_df
 
 
-def create_pd_table(data, flag_sort, need_names):
+def create_pd_table(data, flag_sort, need_names, date_limit):
     df_list = []
     for i in range(len(data)):
         df = pd.DataFrame.from_dict(data[i])
+        df['Time'] = pd.to_datetime(df['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
+        df = df[(df['Time'] >= date_limit[0]) & (df['Time'] <= date_limit[1])]
         df = pre_processing_df(df)
         df = df[df['Name'].isin(need_names[i])]
         df_list.append(df)
@@ -147,12 +156,12 @@ def save_csv(dataframe: pd.DataFrame, output_file):
     dataframe.to_excel(f'{output_file}.xlsx', index=False)
 
 
-def main_alghrotitm(table_and_columns: dict, database_path, flags, output_file_name):
+def main_alghrotitm(table_and_columns: dict, database_path, flags, output_file_name, date_limit):
     taken = take_datas(table_and_columns, database_path, flags[1])
     # print(taken)
     taken = [k for k in taken if k != {}]
     need_names = [table_and_columns[k] for k in table_and_columns.keys()]
-    df = create_pd_table(taken, flags[0], need_names)
+    df = create_pd_table(taken, flags[0], need_names, date_limit)
     df['Длительность'] = df['Длительность'].astype(str)
     save_csv(df, output_file_name)
 
