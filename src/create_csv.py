@@ -249,7 +249,6 @@ def main_alghrotitm(table_and_columns, database_path, flags, new_names={}, outer
     if flags[1]:
         df = rename_columns(df, new_names)
     if flags[-1]:
-        date_limit = [datetime.strptime(date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in date_limit]
         # Преобразование колонки 'Time' в тип данных datetime
         df['Time'] = pd.to_datetime(df['Time'])
 

@@ -7,7 +7,7 @@ import create_csv
 import re
 from tkcalendar import Calendar
 from datetime import date
-
+from datetime import datetime
 
 selected_tables = []
 selected_columns = {}
@@ -352,23 +352,29 @@ def work():
         today = date.today()
 
         def on_date_select(date1, date2):
-            date_limit.append(date1)
-            date_limit.append(date2)
-            additional_window.destroy()
+            date1 = datetime.strptime(date1, '%d-%m-%Y').strftime('%Y-%m-%d')
+            date1 = datetime.strptime(date1, '%Y-%m-%d')
+            date2 = datetime.strptime(date2, '%d-%m-%Y').strftime('%Y-%m-%d')
+            date2 = datetime.strptime(date2, '%Y-%m-%d')
+            if date1>date2:
+                messagebox.showerror("Ошибка", "Вы выбрали конечную дату, которая была раньше, чем начальная дата")
+                pass
+            else:
+                date_limit.append(date1)
+                date_limit.append(date2)
+                additional_window.destroy()
         label1 = tk.Label(
-            additional_window, text=f'Введите верхнюю границу времени')
+            additional_window, text=f'Введите начальную дату')
         label1.pack(pady=5)
         calendar1 = Calendar(additional_window, selectmode="day", date_pattern="dd-mm-yyyy",
                              year=today.year, month=today.month, day=today.day)
-        # calendar1.set_title("Верхняя граница времени")
         calendar1.pack(pady=2)
 
         label2 = tk.Label(
-            additional_window, text=f'Введите нижнюю границу времени')
+            additional_window, text=f'Введите конечную дату')
         label2.pack(pady=5)
         calendar2 = Calendar(additional_window, selectmode="day", date_pattern="dd-mm-yyyy",
                              year=today.year, month=today.month, day=today.day)
-        # calendar2.set_title("Верхняя граница времени")
         calendar2.pack(pady=2)
 
         button = tk.Button(additional_window, text="Выбрать",
