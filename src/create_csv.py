@@ -4,12 +4,12 @@ import sqlite3
 import pyodbc
 
 # database = r'C:\Users\Vexrina\Desktop\projects\practice\Obluchok.sqlite'
-# tables_and_collumns = {
-#     # 'EventsShsm': ['Name', 'Type', 'Identifier'],
-#     'EventsSHUM': ['Name', 'Type', 'Identifier'],
-#     # 'Events7XA': ['Name', 'Type', 'Identifier'],
-#     'EventsAvtuk': ['Name', 'Type', 'Identifier'],
-# }
+tables_and_collumns = {
+    # 'EventsShsm': ['Name', 'Type', 'Identifier'],
+    'EventsSHUM': ['Name', 'Type', 'Identifier'],
+    # 'Events7XA': ['Name', 'Type', 'Identifier'],
+    'EventsAvtuk': ['Name', 'Type', 'Identifier'],
+}
 
 
 def pre_processing_df(dataframe: pd.DataFrame):
@@ -83,14 +83,16 @@ def pre_processing_df(dataframe: pd.DataFrame):
     return new_df
 
 
-def create_pd_table(data, flag_sort, need_names, date_limit):
+def create_pd_table(data, flag_sort, need_names, date_limit, table_names):
     df_list = []
     for i in range(len(data)):
         df = pd.DataFrame.from_dict(data[i])
         df['Time'] = pd.to_datetime(df['Time'], format='%Y-%m-%dT%H:%M:%S.%f')
-        df = df[(df['Time'] >= date_limit[0]) & (df['Time'] <= date_limit[1])]
+        if len(date_limit)>0:
+            df = df[(df['Time'] >= date_limit[0]) & (df['Time'] <= date_limit[1])]
         df = pre_processing_df(df)
         df = df[df['Name'].isin(need_names[i])]
+        df['TableName'] = table_names[i]
         df_list.append(df)
     result_df = pd.concat(df_list, axis=0)
     if not flag_sort:
@@ -153,7 +155,7 @@ def take_datas(table_and_columns, database, database_var=0):
 
 
 def save_csv(dataframe: pd.DataFrame, output_file):
-    dataframe.to_excel(f'{output_file}.xlsx', index=False)
+    dataframe.to_csv(f'{output_file}.csv', index=False)
 
 
 def main_alghrotitm(table_and_columns: dict, database_path, flags, output_file_name, date_limit):
@@ -161,8 +163,10 @@ def main_alghrotitm(table_and_columns: dict, database_path, flags, output_file_n
     # print(taken)
     taken = [k for k in taken if k != {}]
     need_names = [table_and_columns[k] for k in table_and_columns.keys()]
-    df = create_pd_table(taken, flags[0], need_names, date_limit)
+    table_names = [k for k in table_and_columns.keys()]
+    df = create_pd_table(taken, flags[0], need_names, date_limit, table_names)
     df['Длительность'] = df['Длительность'].astype(str)
     save_csv(df, output_file_name)
+    return True
 
 # main_alghrotitm(tables_and_collumns, database, [0, 0, 0, 0])

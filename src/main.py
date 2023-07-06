@@ -170,6 +170,7 @@ radio4.pack(anchor='w')
 
 
 def work():
+    execute_button.config(state="disabled")
     ready_to_work = {}
     radiobuttons_values = [var1.get(), database_var.get(), var2.get()]
     for item in selected_columns_tree.get_children():
@@ -182,6 +183,7 @@ def work():
             ready_to_work[table_name] = [column_value]
     if len(ready_to_work) == 0:
         messagebox.showerror("Ошибка", "Не выбраны события")
+        execute_button.config(state='active')
         return
     flags = [bool(value) for value in radiobuttons_values]
     date_limit = []
@@ -227,13 +229,16 @@ def work():
 
     output_file = output_file_name.cget('text')
     output_file = output_file[output_file.find(':')+2:]
-    create_csv.main_alghrotitm(
+    complete = create_csv.main_alghrotitm(
         table_and_columns=ready_to_work,
         database_path=database_entry.get(),
         flags=flags,
         output_file_name=output_file if len(output_file) > 0 else 'output',
         date_limit=date_limit if len(date_limit) > 0 else []
     )
+    if complete:
+        messagebox.showinfo("Успех", "Отчёт успешно создан")
+        execute_button.config(state="active")
 
 
 execute_button = tk.Button(right_frame, text="Выполнить",
